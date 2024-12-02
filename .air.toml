@@ -1,0 +1,10 @@
+# Config file for Air (https://github.com/cosmtrek/air) in TOML format
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "make build-debug"
+bin = "./dist/app"
+full_bin = "make debug"
+include_ext = ["go", "tpl", "tmpl", "html"]
+exclude_dir = ["tmp", "vendor", "node_modules", "public", "dist", "uploads"]

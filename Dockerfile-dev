@@ -1,0 +1,10 @@
+FROM golang:1.23-alpine
+WORKDIR /app
+RUN go install github.com/air-verse/air@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest
+
+RUN apk add --no-cache make
+COPY go.mod go.sum ./
+RUN go mod download
+EXPOSE 8080 2345
+CMD ["make", "air"]
