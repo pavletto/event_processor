@@ -12,7 +12,7 @@ import (
 func GetSourcesHandler(c *gin.Context) {
 	var sources []models.Source
 
-	if err := db.DB.Preload("Accelerometer").Preload("Location").Preload("Risk").Find(&sources).Error; err != nil {
+	if err := db.DB.Preload("Accelerometer").Preload("Events").Preload("Location").Preload("Risk").Find(&sources).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve sources"})
 		return
 	}
@@ -24,7 +24,7 @@ func GetSourceHandler(c *gin.Context) {
 
 	var source models.Source
 
-	if err := db.DB.Preload("Accelerometer").Preload("Location").Preload("Risk").First(&source, "id = ?", id).Error; err != nil {
+	if err := db.DB.Preload("Accelerometer").Preload("Events").Preload("Location").Preload("Risk").First(&source, "id = ?", id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Source not found"})
 		return
 	}

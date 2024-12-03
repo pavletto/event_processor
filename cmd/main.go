@@ -29,6 +29,10 @@ func main() {
 	router.GET("/sources", handlers.GetSourcesHandler)
 	router.GET("/source/:id", handlers.GetSourceHandler)
 
+	router.POST("/events", handlers.CreateEventHandler)
+	router.GET("/events", handlers.GetEventsHandler)
+	router.GET("/events/:id", handlers.GetEventHandler)
+
 	router.GET("/video/:id", handlers.GetVideoHandler)
 
 	router.GET("/image/:id", handlers.GetImageHandler)

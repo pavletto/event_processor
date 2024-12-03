@@ -59,7 +59,13 @@ func Init() {
 		log.Fatal("Failed to connect to the database:", err)
 	}
 
-	err = db.AutoMigrate(&models.Source{}, &models.AccelerometerData{}, &models.LocationData{}, &models.RiskData{})
+	err = db.AutoMigrate(
+		&models.Source{},
+		&models.Event{},
+		&models.AccelerometerData{},
+		&models.LocationData{},
+		&models.RiskData{},
+	)
 	if err != nil {
 		log.Fatal("Database migration error:", err)
 	}

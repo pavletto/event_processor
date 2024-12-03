@@ -21,7 +21,8 @@ type Source struct {
 	UpdatedAt      time.Time           `gorm:"type:timestamp(6)" json:"updated_at"`
 	ThumbnailKey   string              `json:"thumbnail_key"`
 	VideoKey       string              `json:"video_key"`
-	Accelerometer  []AccelerometerData `gorm:"foreignKey:EventID;references:ID" json:"accelerometer"`
-	Location       []LocationData      `gorm:"foreignKey:EventID;references:ID" json:"location"`
-	Risk           []RiskData          `gorm:"foreignKey:EventID;references:ID" json:"risk"`
+	Accelerometer  []AccelerometerData `gorm:"foreignKey:SourceID;references:ID" json:"accelerometer"`
+	Location       []LocationData      `gorm:"foreignKey:SourceID;references:ID" json:"location"`
+	Risk           []RiskData          `gorm:"foreignKey:SourceID;references:ID" json:"risk"`
+	Events         []Event             `gorm:"foreignKey:SourceID;references:ID" json:"events"`
 }

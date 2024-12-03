@@ -4,7 +4,7 @@ import "time"
 
 type LocationData struct {
 	ID            uint      `gorm:"primaryKey"`
-	EventID       string    `gorm:"index" json:"-"`
+	SourceID      string    `gorm:"index" json:"-"`
 	RecordingTime time.Time `gorm:"type:timestamp(6)" json:"recording_time"`
 	Altitude      *float64  `json:"altitude"`
 	Latitude      *float64  `json:"latitude"`
