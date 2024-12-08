@@ -9,7 +9,7 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, onMounted, onUnmounted, ref, watch} from 'vue';
+import {defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from 'vue';
 import * as d3 from 'd3';
 import {AccelerometerData} from '../types/AccelerometerData';
 import {formatDate} from '../utils/date.ts';
@@ -292,7 +292,8 @@ export default defineComponent({
 
     watch(
         () => props.data,
-        () => {
+        async () => {
+          await nextTick();
           createVisualization();
         },
         {deep: true}

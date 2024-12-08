@@ -11,7 +11,7 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, onMounted, onUnmounted, ref, watch} from 'vue';
+import {defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from 'vue';
 import * as d3 from 'd3';
 import {RiskData} from '../types/RiskData';
 import {Event} from '../types/Event';
@@ -281,7 +281,8 @@ export default defineComponent({
 
     watch(
         () => props.events,
-        () => {
+        async () => {
+          await nextTick();
           createVisualization();
         },
         {deep: true}

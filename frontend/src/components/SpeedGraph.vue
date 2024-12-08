@@ -14,7 +14,7 @@
 </template>
 
 <script lang="ts">
-import {defineComponent, onMounted, onUnmounted, ref, watch} from 'vue';
+import {defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from 'vue';
 import * as d3 from 'd3';
 import {LocationData} from '../types/LocationData';
 import {formatDate} from '../utils/date.ts';
@@ -39,14 +39,14 @@ export default defineComponent({
     },
   },
   emits: ['seek-video', 'current-data'],
-  setup(props, {emit}) {
+  setup(props, { emit }) {
     const chartRef = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGGElement, unknown, null, undefined>;
     let xScale: d3.ScaleLinear<number, number>;
     let yScale: d3.ScaleLinear<number, number>;
     let width: number;
     let height: number;
-    const margin = {top: 20, right: 20, bottom: 20, left: 30};
+    const margin = { top: 20, right: 20, bottom: 20, left: 30 };
     let resizeObserver: ResizeObserver | null = null;
 
     const processedData = ref<any[]>([]);
@@ -283,10 +283,11 @@ export default defineComponent({
 
     watch(
         () => props.data,
-        () => {
+        async () => {
+          await nextTick();
           createVisualization();
         },
-        {deep: true}
+        { deep: true }
     );
 
     watch(
