@@ -3,6 +3,8 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"os"
@@ -48,9 +50,11 @@ func UploadHandler(c *gin.Context) {
 		videoFilename := filepath.Base(file.Filename)
 		videoSavePath := filepath.Join(videoUploadPath, videoFilename)
 
-		if err := c.SaveUploadedFile(file, videoSavePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file", "details": err.Error()})
-			return
+		if _, err := os.Stat(videoSavePath); os.IsNotExist(err) {
+			if err := c.SaveUploadedFile(file, videoSavePath); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save video file", "details": err.Error()})
+				return
+			}
 		}
 
 		var imageSavePath string
@@ -59,9 +63,11 @@ func UploadHandler(c *gin.Context) {
 			imageFilename := filepath.Base(imageFile.Filename)
 			imageSavePath = filepath.Join(imageUploadPath, imageFilename)
 
-			if err := c.SaveUploadedFile(imageFile, imageSavePath); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image file", "details": err.Error()})
-				return
+			if _, err := os.Stat(imageSavePath); os.IsNotExist(err) {
+				if err := c.SaveUploadedFile(imageFile, imageSavePath); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image file", "details": err.Error()})
+					return
+				}
 			}
 		}
 
@@ -102,6 +108,14 @@ func UploadHandler(c *gin.Context) {
 		source.VideoKey = videoSavePath
 		if imageSavePath != "" {
 			source.ThumbnailKey = imageSavePath
+		}
+
+		var existingSource models.Source
+		if err := db.DB.Where("id = ?", source.ID).First(&existingSource).Error; err == nil {
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error", "details": err.Error()})
+			return
 		}
 
 		if err := db.DB.Create(&source).Error; err != nil {

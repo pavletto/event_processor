@@ -7,4 +7,4 @@ cmd = "make build-debug"
 bin = "./dist/app"
 full_bin = "make debug"
 include_ext = ["go", "tpl", "tmpl", "html"]
-exclude_dir = ["tmp", "vendor", "node_modules", "public", "dist", "uploads"]
+exclude_dir = ["tmp", "vendor", "node_modules", "public", "dist", "uploads", "frontend"]

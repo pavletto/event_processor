@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "${WEB_PORT}:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - app-network
+
   db:
     image: postgres:13-alpine
     environment:
@@ -15,11 +28,13 @@ services:
       - app-network
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 10s
+      interval: 2s
       timeout: 5s
       retries: 5
 
-  app:
+  backend-dev:
+    profiles:
+      - dev
     build:
       context: .
       dockerfile: ./Dockerfile-dev
@@ -35,13 +50,87 @@ services:
       DB_SSLMODE: disable
       DB_TIMEZONE: UTC
     ports:
-      - "8080:8080"
       - "2345:2345"
     volumes:
       - ./tmp/uploads:/app/uploads
       - .:/app
     networks:
       - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-dev.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-dev.middlewares=api-strip"
+      - "traefik.http.middlewares.api-strip.stripPrefix.prefixes=/api"
+      - "traefik.http.services.backend-dev.loadbalancer.server.port=8080"
+
+  backend:
+    profiles:
+      - prod
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: events_db
+      DB_PORT: 5432
+      DB_SSLMODE: disable
+      DB_TIMEZONE: UTC
+    volumes:
+      - ./tmp/uploads:/app/uploads
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.middlewares=api-strip"
+      - "traefik.http.middlewares.api-strip.stripPrefix.prefixes=/api"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+
+  frontend-dev:
+    profiles:
+      - dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile-dev
+    depends_on:
+      - backend-dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    restart: unless-stopped
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-dev.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend-dev.priority=1"
+      - "traefik.http.services.frontend-dev.loadbalancer.server.port=3000"
+
+  frontend:
+    profiles:
+      - prod
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=5000"
 
 volumes:
   db_data:

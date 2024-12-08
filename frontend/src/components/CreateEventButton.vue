@@ -1,29 +1,28 @@
 <template>
-  <div>
-    <button @click="handleButtonClick" class="btn btn-primary">
+  <div class=" py-4 my-auto flex justify-center border-l border-gray-300 ">
+    <button @click="handleButtonClick" class="bg-blue-500 text-white px-4 py-2 rounded">
       {{ buttonLabel }}
     </button>
 
-    <!-- Modal -->
-    <div v-if="showModal" class="modal-overlay">
-      <div class="modal">
-        <h3>Create Event</h3>
+    <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div class="bg-white p-6 rounded shadow-lg w-80">
+        <h3 class="text-lg font-semibold mb-4">Create Event</h3>
         <form @submit.prevent="submitEvent">
-          <div class="form-group">
-            <label for="tag">Tag:</label>
-            <select v-model="tag" id="tag" required>
+          <div class="mb-4">
+            <label for="tag" class="block mb-1">Tag:</label>
+            <select v-model="tag" id="tag" required class="w-full border border-gray-300 rounded px-3 py-2">
               <option disabled value="">Please select one</option>
               <option value="danger">Danger</option>
               <option value="safe">Safe</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="comment">Comment:</label>
-            <textarea v-model="comment" id="comment" rows="3"></textarea>
+          <div class="mb-4">
+            <label for="comment" class="block mb-1">Comment:</label>
+            <textarea v-model="comment" id="comment" rows="3" class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
           </div>
-          <div class="modal-actions">
-            <button type="submit" class="btn btn-success">Submit</button>
-            <button type="button" @click="cancelEvent" class="btn btn-secondary">Cancel</button>
+          <div class="flex justify-end">
+            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Submit</button>
+            <button type="button" @click="cancelEvent" class="bg-gray-500 text-white px-4 py-2 rounded ml-2">Cancel</button>
           </div>
         </form>
       </div>
@@ -44,7 +43,7 @@ export default defineComponent({
     },
     sourceId: {
       type: String,
-      required: true,
+      required: false,
     },
   },
   emits: ['event-created'],
@@ -102,8 +101,8 @@ export default defineComponent({
 
       const payload = {
         source_id: props.sourceId,
-        start_time: startTime.value * 1000,
-        end_time: endTime.value * 1000,
+        start_time: startTime.value,
+        end_time: endTime.value,
         tag: tag.value,
         comment: comment.value,
       };
@@ -132,55 +131,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-.btn {
-  padding: 8px 16px;
-  margin: 5px;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal {
-  background-color: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 300px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 5px;
-  box-sizing: border-box;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.modal-actions .btn {
-  margin-left: 10px;
-}
-</style>

@@ -1,8 +1,15 @@
 <template>
-  <div v-if="data.length > 0"  ref="chartRef" class="chart-container"></div>
+  <div class="flex flex-col">
 
-  <div v-else>
-    <h2>There are no speed data</h2>
+    <h3 class="my-2 ml-4 text-lg font-bold">Speed</h3>
+    <div v-if="data.length > 0" ref="chartRef" class="relative w-full h-full">
+      <div
+          class="tooltip absolute opacity-0 pointer-events-none bg-white border border-gray-300 p-2 rounded shadow-lg text-xs transition-opacity duration-300"></div>
+    </div>
+
+    <div v-else class="flex justify-center items-center h-full w-full text-gray-500">
+      <h2>There are no speed data</h2>
+    </div>
   </div>
 </template>
 
@@ -11,6 +18,8 @@ import {defineComponent, onMounted, onUnmounted, ref, watch} from 'vue';
 import * as d3 from 'd3';
 import {LocationData} from '../types/LocationData';
 import {formatDate} from '../utils/date.ts';
+import {Event} from "../types/Event.ts";
+import {eventsToChartData} from "../utils/charts.ts";
 
 export default defineComponent({
   name: 'SpeedGraph',
@@ -23,41 +32,48 @@ export default defineComponent({
       type: Number,
       required: true,
     },
+    events: {
+      type: Array as () => Event[],
+      required: false,
+      default: () => [],
+    },
   },
   emits: ['seek-video', 'current-data'],
-  setup(props, { emit }) {
+  setup(props, {emit}) {
     const chartRef = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGGElement, unknown, null, undefined>;
     let xScale: d3.ScaleLinear<number, number>;
     let yScale: d3.ScaleLinear<number, number>;
     let width: number;
     let height: number;
-    const margin = { top: 20, right: 20, bottom: 20, left: 30 };
+    const margin = {top: 20, right: 20, bottom: 20, left: 30};
     let resizeObserver: ResizeObserver | null = null;
 
     const processedData = ref<any[]>([]);
 
     const createVisualization = () => {
       if (!props.data || props.data.length === 0) {
-        console.warn('Нет данных для визуализации скорости');
+        console.warn('no speed data');
         return;
       }
 
       const chartElement = chartRef.value;
-      if (!chartElement) {
-        console.error('Элемент графика не найден');
+      if (!(chartElement instanceof HTMLElement)) {
+        console.error('chart element not found');
         return;
       }
 
-      d3.select(chartElement).selectAll('*').remove();
+      d3.select(chartElement).select('svg').remove();
 
       const data = props.data.map(d => ({
         recording_time: new Date(d.recording_time),
-        speed: d.speed_kmh || 0,      }));
+        speed: d.speed_kmh || 0,
+        relative_time: 0
+      }));
 
       const startTime = d3.min(data, d => d.recording_time) as Date;
       if (!startTime) {
-        console.error('Не удалось определить начальное время');
+        console.error('failed to determine start time');
         return;
       }
 
@@ -77,9 +93,11 @@ export default defineComponent({
 
       svg = d3.select(chartElement)
           .append('svg')
+          .attr('class', 'w-full')
           .attr('width', containerWidth)
           .attr('height', containerHeight)
-          .on('click', handleClick)          .append('g')
+          .on('click', handleClick)
+          .append('g')
           .attr('transform', `translate(${margin.left},${margin.top})`);
 
       xScale = d3.scaleLinear()
@@ -97,31 +115,30 @@ export default defineComponent({
           .x(d => xScale(d.relative_time))
           .y(d => yScale(d.speed))
           .curve(d3.curveMonotoneX);
+
       svg.append('path')
           .datum(data)
           .attr('class', 'line speed-line')
           .attr('d', line)
-          .style('stroke', 'orange')
-          .style('stroke-width', 2)
-          .style('fill', 'none');
-
-
+          .attr('stroke', 'orange')
+          .attr('stroke-width', 2)
+          .attr('fill', 'none');
 
       svg.append('rect')
           .attr('class', 'overlay')
           .attr('width', width)
           .attr('height', height)
-          .style('fill', 'none')
-          .style('pointer-events', 'all')
+          .attr('fill', 'none')
+          .attr('pointer-events', 'all')
           .on('mousemove', handleMouseMove)
           .on('mouseover', handleMouseOver)
           .on('mouseout', handleMouseOut);
 
-      const tooltip = d3.select(chartElement)
-          .append('div')
-          .attr('class', 'tooltip')
-          .style('opacity', 0)
-          .style('position', 'absolute');
+      eventsToChartData(svg, props.events)
+          .attr('x', d => xScale(d.start_time))
+          .attr('width', d => xScale(d.end_time - d.start_time))
+          .attr('y', 0)
+          .attr('height', height);
 
       drawTimePointer();
 
@@ -131,21 +148,21 @@ export default defineComponent({
     const drawTimePointer = () => {
       if (!xScale) return;
 
-      let timePointer = svg.select('.time-pointer');
+      let timePointer = svg.select<SVGLineElement>('.time-pointer');
 
       if (timePointer.empty()) {
         timePointer = svg.append('line')
             .attr('class', 'time-pointer')
             .attr('y1', 0)
             .attr('y2', height)
-            .attr('stroke', 'black')
+            .attr('stroke', 'red')
             .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5,5')
             .attr('x1', xScale(props.currentTime))
             .attr('x2', xScale(props.currentTime));
       } else {
         timePointer.transition()
-            .duration(100)            .attr('x1', xScale(props.currentTime))
+            .duration(100)
+            .attr('x1', xScale(props.currentTime))
             .attr('x2', xScale(props.currentTime));
       }
 
@@ -179,7 +196,7 @@ export default defineComponent({
     const handleClick = (event: MouseEvent) => {
       if (!xScale) return;
 
-      const chartElement = chartRef.value;
+      const chartElement: HTMLElement = chartRef.value;
       if (!chartElement) return;
 
       const svgElement = chartElement.querySelector('svg');
@@ -199,7 +216,7 @@ export default defineComponent({
     const handleMouseMove = (event: MouseEvent) => {
       if (!xScale || !yScale) return;
 
-      const [mouseX, mouseY] = d3.pointer(event, svg.node());
+      const [mouseX, mouseY] = d3.pointer(event, svg.node() as Element);
 
       const mouseTime = xScale.invert(mouseX);
 
@@ -218,6 +235,7 @@ export default defineComponent({
       }
 
       if (d) {
+        const tooltip = d3.select(chartRef.value).select('.tooltip');
         if (typeof d.speed === 'number') {
           d3.select(chartRef.value)
               .select('.tooltip')
@@ -226,17 +244,23 @@ export default defineComponent({
                   `Time: ${formatDate(d.relative_time * 1000, '{m}:{s}.{ms}')}<br/>Speed: ${d.speed.toFixed(2)} km/h`
               )
               .style('left', `${mouseX + margin.left + 15}px`)
-              .style('top', `${mouseY + margin.top - 28}px`);
+              .style('top', `${mouseY - 28}px`);
         }
       }
     };
 
     const handleMouseOver = () => {
-      d3.select(chartRef.value).select('.tooltip').style('opacity', 1);
+      d3.select(chartRef.value).select('.tooltip')
+          .transition()
+          .duration(100)
+          .style('opacity', 1);
     };
 
     const handleMouseOut = () => {
-      d3.select(chartRef.value).select('.tooltip').style('opacity', 0);
+      d3.select(chartRef.value).select('.tooltip')
+          .transition()
+          .duration(100)
+          .style('opacity', 0);
     };
 
     onMounted(() => {
@@ -262,7 +286,7 @@ export default defineComponent({
         () => {
           createVisualization();
         },
-        { deep: true }
+        {deep: true}
     );
 
     watch(
@@ -278,36 +302,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-.chart-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.line {
-  fill: none;
-  stroke-width: 1.5px;
-}
-
-.speed-line {
-  stroke: orange;
-}
-
-.time-pointer {
-  stroke: black;
-  stroke-width: 2px;
-  stroke-dasharray: 5,5;
-}
-
-.tooltip {
-  background-color: white;
-  border: 1px solid #cccccc;
-  padding: 8px;
-  border-radius: 4px;
-  pointer-events: none;
-  font-size: 12px;
-  box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.1);
-}
-</style>

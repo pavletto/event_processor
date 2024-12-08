@@ -1,6 +1,12 @@
 <template>
-  <div ref="chartRef" class="chart-container">
-    <div class="tooltip"></div>
+  <h3 class="my-2 ml-4 text-lg font-bold">Risks</h3>
+  <div v-if="data.length > 0" ref="chartRef" class="relative w-full h-20">
+    <div
+        class="tooltip absolute opacity-0 pointer-events-none bg-white border border-gray-300 p-2 rounded shadow-lg text-xs transition-opacity duration-300"></div>
+  </div>
+
+  <div v-else class="flex justify-center items-center h-full w-full text-gray-500">
+    <h2>There are no risk data</h2>
   </div>
 </template>
 
@@ -10,6 +16,7 @@ import * as d3 from 'd3';
 import {RiskData} from '../types/RiskData';
 import {Event} from '../types/Event';
 import {formatDate} from '../utils/date.ts';
+import {eventsToChartData} from "../utils/charts.ts";
 
 export default defineComponent({
   name: 'RiskGraph',
@@ -22,31 +29,34 @@ export default defineComponent({
       type: Number,
       required: true,
     },
-    events: {      type: Array as () => Event[],
+    events: {
+      type: Array as () => Event[],
       required: false,
       default: () => [],
     },
   },
-  emits: ['seek-video'],
-  setup(props, { emit }) {
+  emits: ['seek-video', 'current-data'],
+  setup(props, {emit}) {
     const chartRef = ref<HTMLElement | null>(null);
     let svg: d3.Selection<SVGGElement, unknown, null, undefined>;
     let xScale: d3.ScaleLinear<number, number>;
     let yScale: d3.ScaleLinear<number, number>;
     let width: number;
     let height: number;
-    const margin = { top: 10, right: 20, bottom: 10, left: 20 };
+    const margin = {top: 10, right: 20, bottom: 10, left: 20};
     let resizeObserver: ResizeObserver | null = null;
+
+    const processedData = ref<any[]>([]);
 
     const createVisualization = () => {
       if (!props.data || props.data.length === 0) {
-        console.warn('No risk data available for visualization');
+        console.warn('no risk data');
         return;
       }
 
       const chartElement = chartRef.value;
-      if (!chartElement) {
-        console.error('Chart element not found');
+      if (!(chartElement instanceof HTMLElement)) {
+        console.error('chart element not found');
         return;
       }
 
@@ -59,7 +69,7 @@ export default defineComponent({
 
       const startTime = d3.min(riskData, d => d.recording_time) as Date;
       if (!startTime) {
-        console.error('Failed to determine start time');
+        console.error('failed to determine start time');
         return;
       }
 
@@ -69,6 +79,8 @@ export default defineComponent({
 
       riskData.sort((a, b) => (a as any).relative_time - (b as any).relative_time);
 
+      processedData.value = riskData;
+
       const containerWidth = chartElement.clientWidth;
       const containerHeight = chartElement.clientHeight || 100;
 
@@ -77,6 +89,7 @@ export default defineComponent({
 
       svg = d3.select(chartElement)
           .append('svg')
+          .attr('class', 'w-full')
           .attr('width', containerWidth)
           .attr('height', containerHeight)
           .on('click', handleClick)
@@ -98,72 +111,36 @@ export default defineComponent({
           .data(riskData)
           .enter()
           .append('rect')
-          .attr('class', 'bar')
           .attr('x', d => xScale((d as any).relative_time))
           .attr('width', width / riskData.length)
           .attr('y', d => yScale(d.prob))
           .attr('height', d => height - yScale(d.prob))
-          .style('fill', 'green');
+          .attr('fill', 'green');
 
-      if (props.events && props.events.length > 0) {
-        const eventData = props.events.map(event => ({
-          ...event,
-          start_time: event.start_time/ 1000,
-          end_time: event.end_time/ 1000,
-          relative_start: event.start_time / 1000 - (startTime.getTime() - startTime.getTime()) / 1000,
-          relative_end: event.end_time / 1000 - (startTime.getTime() - startTime.getTime()) / 1000,
-        }));
-
-        svg.selectAll('.event-block')
-            .data(eventData)
-            .enter()
-            .append('rect')
-            .attr('class', 'event-block')
-            .attr('x', d => xScale(d.relative_start))
-            .attr('width', d => xScale(d.relative_end - d.relative_start))
-            .attr('y', 0)
-            .attr('height', height)
-            .style('fill', 'rgba(255, 0, 0, 0.3)')
-            .style('stroke', 'red')
-            .style('stroke-width', 1)
-            .on('mouseover', (event, d) => {
-              const tooltip = d3.select(chartRef.value).select('.tooltip');
-              tooltip
-                  .style('opacity', 1)
-                  .html(`
-                <strong>Событие:</strong> ${d.tag}<br/>
-                <strong>Начало:</strong> ${formatDate(d.relative_start * 1000, '{m}:{s}.{ms}')} s<br/>
-                <strong>Конец:</strong> ${formatDate(d.relative_end * 1000, '{m}:{s}.{ms}')} s<br/>
-                <strong>Комментарий:</strong> ${d.comment}
-              `)
-                  .style('left', `${d3.pointer(event, chartRef.value)[0] + margin.left + 10}px`)
-                  .style('top', `${d3.pointer(event, chartRef.value)[1] + margin.top - 28}px`);
-            })
-            .on('mouseout', () => {
-              d3.select(chartRef.value).select('.tooltip').style('opacity', 0);
-            });
-      }
+      eventsToChartData(svg, props.events)
+          .attr('x', d => xScale(d.start_time))
+          .attr('width', d => xScale(d.end_time - d.start_time))
+          .attr('y', 0)
+          .attr('height', height);
 
       svg.append('rect')
-          .attr('class', 'overlay')
           .attr('width', width)
           .attr('height', height)
-          .style('fill', 'none')
-          .style('pointer-events', 'all')
+          .attr('fill', 'none')
+          .attr('pointer-events', 'all')
           .on('mousemove', handleMouseMove)
           .on('mouseover', handleMouseOver)
           .on('mouseout', handleMouseOut);
 
-      const tooltip = d3.select(chartElement)
-          .select('.tooltip');
-
       drawTimePointer();
+
+      emitCurrentData();
     };
 
     const drawTimePointer = () => {
       if (!xScale) return;
 
-      let timePointer = svg.select('.time-pointer');
+      let timePointer = svg.select<SVGLineElement>('.time-pointer');
 
       if (timePointer.empty()) {
         timePointer = svg.append('line')
@@ -172,7 +149,6 @@ export default defineComponent({
             .attr('y2', height)
             .attr('stroke', 'red')
             .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5,5')
             .attr('x1', xScale(props.currentTime))
             .attr('x2', xScale(props.currentTime));
       } else {
@@ -183,11 +159,33 @@ export default defineComponent({
       }
     };
 
+    const emitCurrentData = () => {
+      if (!processedData.value || processedData.value.length === 0) return;
+
+      const bisect = d3.bisector((d: any) => d.relative_time).left;
+      const idx = bisect(processedData.value, props.currentTime);
+
+      let d: any = null;
+      if (idx === 0) {
+        d = processedData.value[0];
+      } else if (idx >= processedData.value.length) {
+        d = processedData.value[processedData.value.length - 1];
+      } else {
+        const d0 = processedData.value[idx - 1];
+        const d1 = processedData.value[idx];
+        d = (props.currentTime - d0.relative_time) > (d1.relative_time - props.currentTime) ? d1 : d0;
+      }
+
+      if (d) {
+        emit('current-data', d);
+      }
+    };
+
     const handleClick = (event: MouseEvent) => {
       if (!xScale) return;
 
       const chartElement = chartRef.value;
-      if (!chartElement) return;
+      if (!(chartElement instanceof HTMLElement)) return;
 
       const svgElement = chartElement.querySelector('svg');
       if (!svgElement) return;
@@ -206,46 +204,46 @@ export default defineComponent({
     const handleMouseMove = (event: MouseEvent) => {
       if (!xScale || !yScale) return;
 
-      const [mouseX, mouseY] = d3.pointer(event, svg.node());
+      const [mouseX, mouseY] = d3.pointer(event, svg.node() as Element);
 
       const mouseTime = xScale.invert(mouseX);
 
-      const data = props.data.map(d => ({
-        recording_time: new Date(d.recording_time),
-        prob: d.prob || 0,
-        relative_time: (new Date(d.recording_time).getTime() - new Date(d3.min(props.data, d => d.recording_time) as Date).getTime()) / 1000
-      })).sort((a, b) => a.relative_time - b.relative_time);
-
       const bisect = d3.bisector((d: any) => d.relative_time).left;
-      const idx = bisect(data, mouseTime);
+      const idx = bisect(processedData.value, mouseTime);
 
       let d: any = null;
       if (idx === 0) {
-        d = data[0];
-      } else if (idx >= data.length) {
-        d = data[data.length - 1];
+        d = processedData.value[0];
+      } else if (idx >= processedData.value.length) {
+        d = processedData.value[processedData.value.length - 1];
       } else {
-        const d0 = data[idx - 1];
-        const d1 = data[idx];
+        const d0 = processedData.value[idx - 1];
+        const d1 = processedData.value[idx];
         d = (mouseTime - d0.relative_time) > (d1.relative_time - mouseTime) ? d1 : d0;
       }
 
       if (d) {
-        const tooltip = d3.select(chartRef.value).select('.tooltip');
-        tooltip
+        d3.select(chartRef.value)
+            .select('.tooltip')
             .style('opacity', 1)
-            .html(`Время: ${formatDate(d.relative_time * 1000, '{m}:{s}.{ms}')} s<br/>Риск: ${d.prob.toFixed(2)}`)
+            .html(`Time: ${formatDate(d.relative_time * 1000, '{m}:{s}.{ms}')} s<br/>Risk: ${d.prob.toFixed(2)}`)
             .style('left', `${mouseX + margin.left + 10}px`)
             .style('top', `${mouseY + margin.top - 28}px`);
       }
     };
 
     const handleMouseOver = () => {
-      d3.select(chartRef.value).select('.tooltip').style('opacity', 1);
+      d3.select(chartRef.value).select('.tooltip')
+          .transition()
+          .duration(100)
+          .style('opacity', 1);
     };
 
     const handleMouseOut = () => {
-      d3.select(chartRef.value).select('.tooltip').style('opacity', 0);
+      d3.select(chartRef.value).select('.tooltip')
+          .transition()
+          .duration(100)
+          .style('opacity', 0);
     };
 
     onMounted(() => {
@@ -255,13 +253,13 @@ export default defineComponent({
         createVisualization();
       });
 
-      if (chartRef.value) {
+      if (chartRef && chartRef.value) {
         resizeObserver.observe(chartRef.value);
       }
     });
 
     onUnmounted(() => {
-      if (resizeObserver && chartRef.value) {
+      if (resizeObserver && chartRef && chartRef.value) {
         resizeObserver.unobserve(chartRef.value);
       }
     });
@@ -271,7 +269,7 @@ export default defineComponent({
         () => {
           createVisualization();
         },
-        { deep: true }
+        {deep: true}
     );
 
     watch(
@@ -286,7 +284,7 @@ export default defineComponent({
         () => {
           createVisualization();
         },
-        { deep: true }
+        {deep: true}
     );
 
     return {
@@ -295,39 +293,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style>
-.chart-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.bar {
-  fill: green;
-}
-
-.event-block {
-  cursor: pointer;
-}
-
-.time-pointer {
-  stroke: red;
-  stroke-width: 2px;
-  stroke-dasharray: 5,5;
-}
-
-.tooltip {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #cccccc;
-  padding: 8px;
-  border-radius: 8px;
-  pointer-events: none;
-  font: 12px sans-serif;
-  position: absolute;
-  white-space: nowrap;
-  box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.1);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-</style>

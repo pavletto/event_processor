@@ -1,23 +1,32 @@
 <template>
-  <aside>
-    <div class="empty-list" v-if="sources.length === 0">
-      <h4>No sources available.</h4><p>Please upload resources.</p>
+  <aside class="flex flex-col border-r border-gray-300 max-w-xs">
+    <h3 class="my-2 ml-4 text-lg font-bold">Sources</h3>
+    <div v-if="sources.length === 0" class="flex flex-col flex-1 justify-center items-center text-gray-500">
+      <h4 class="text-lg font-semibold">No sources available.</h4>
+      <p>Please upload resources.</p>
     </div>
-    <ul v-else class="list">
+    <ul v-else class="list flex-1 overflow-auto m-0 p-0">
       <li
-          class="item"
           v-for="source in sources"
           :key="source.id"
-          :class="{ 'item__selected': source.id === selectedSourceId }"
+          :class="[
+          'list-none m-0 p-0',
+          source.id === selectedSourceId ? 'bg-gray-200' : ''
+        ]"
       >
-        <a class="item__link" href="#" @click.prevent="selectSource(source.id)">
-          <span class="item__event-id"> {{ source.id }}</span>
-          <span class="item__event-type">{{ source.event_type }}</span>
+
+        <a
+            href="#"
+            @click.prevent="selectSource(source.id)"
+            class="flex flex-col relative p-2 border-b border-gray-200 transition-colors duration-300 hover:bg-gray-100"
+        >
+          <span class="font-bold">{{ source.id }}</span>
+          <span class="text-gray-600 text-sm">{{ source.event_type }}</span>
           <span
               v-if="source.events.length > 0"
-              class="item__events-count"
+              class="text-white bg-red-700 rounded-full px-2 py-0.5 text-xs absolute right-3 bottom-2"
           >
-            Events:{{ source.events.length }}
+            Events: {{ source.events.length }}
           </span>
         </a>
       </li>
@@ -25,19 +34,24 @@
     <div
         @dragover.prevent
         @drop.prevent="handleDrop"
-        class="dropzone"
+        class="border-2 border-dashed border-gray-300 p-5 relative rounded-lg m-1"
     >
-      <p>Drag and drop files here or click the button to upload.</p>
+      <p class="text-center text-gray-500">Drag and drop files here or click the button to upload.</p>
 
       <input
           type="file"
           multiple
           @change="handleFilesUpload"
           ref="fileInput"
-          style="display: none;"
+          class="hidden"
       />
 
-      <button @click="triggerFileSelect">Upload Files</button>
+      <button
+          @click="triggerFileSelect"
+          class="mt-4 mx-auto block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors duration-300"
+      >
+        Upload Files
+      </button>
     </div>
   </aside>
 </template>
@@ -53,23 +67,26 @@ export default defineComponent({
     return {
       sources: [] as Source[],
       uploadFiles: [] as File[],
-      selectedSourceId: '' as string,    };
+      selectedSourceId: '' as string,
+    };
   },
+  emits: ['source-selected'],
   created() {
     this.fetchSources();
   },
   methods: {
     fetchSources() {
-      sources<Source[]>()
+      sources()
           .then((response) => {
-            this.sources = response.data;
+            this.sources = response.data as Source[];
           })
           .catch((error) => {
             console.error('Error fetching sources:', error);
           });
     },
     selectSource(id: string) {
-      this.selectedSourceId = id;      this.$emit('source-selected', id);
+      this.selectedSourceId = id;
+      this.$emit('source-selected', id);
     },
     triggerFileSelect() {
       const fileInput = this.$refs.fileInput as HTMLInputElement;
@@ -149,93 +166,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-aside {
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-  max-width: 330px;
-}
-
-.empty-list {
-  display: flex;
-  flex-direction: column;
-  flex:1;
-  color:#666;
-  justify-content: center;
-  align-items: center;
-}
-.list {
-  margin: 0;
-  padding: 0;
-  flex: 1;
-  overflow: auto;
-}
-
-.item {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.item__link {
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  padding: 10px;
-  text-decoration: none;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.3s;
-}
-
-.item__link:hover {
-  background-color: #f9f9f9;
-}
-
-.item__selected .item__link {
-  background-color: #e0f7fa; }
-
-.item__events-count {
-  color: white;
-  background: darkred;
-  border-radius: 1rem;
-  padding: 0 4px;
-  position: absolute;
-  right: 12px;
-  font-size: 0.6rem;
-}
-
-.item__event-id {
-  font-weight: bold;
-  float: left;
-}
-
-.item__event-type {
-  color: #666;
-  font-size: 0.8rem;
-}
-
-.dropzone {
-  border: 2px dashed #ccc;
-  padding: 20px;
-  position: relative;
-  border-radius: 8px;
-  margin: 4px;
-}
-
-.dropzone p {
-  margin: 0;
-  text-align: center;
-  color: #666;
-}
-
-.dropzone button {
-  display: block;
-  margin: 10px auto;
-}
-
-.item__selected .item__link {
-  transition: background-color 0.3s;
-}
-</style>

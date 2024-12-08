@@ -1,8 +1,6 @@
 <template>
-  <div class="wrapper">
-      <SourceList @source-selected="handleSourceSelected"/>
-      <SourceDetail :sourceId="selectedSourceId"/>
-  </div>
+    <SourceList @source-selected="handleSourceSelected" />
+    <SourceDetail :sourceId="selectedSourceId" />
 </template>
 
 <script lang="ts">
@@ -16,25 +14,25 @@ export default defineComponent({
     SourceList,
     SourceDetail,
   },
+  emits: [],
   data() {
     return {
-      selectedSourceId: null as string | null,
+      selectedSourceId: undefined as string | undefined,
     };
   },
   methods: {
-    handleSourceSelected(id: string) {
+    handleSourceSelected(id: string): void {
       this.selectedSourceId = id;
     },
   },
 });
 </script>
+
 <style scoped>
 .wrapper {
   display: flex;
   height: 100vh;
+  width: 100vw;
   flex: 1;
 }
-
-
-
 </style>

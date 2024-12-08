@@ -1,51 +1,74 @@
 <template>
-  <main v-if="source">
-    <div class="video-container">
-      <video :src="videoUrl" controls
-             @timeupdate="updateCurrentTime" ref="videoPlayer"></video>
-      <RiskGraph class="risk-graph"
-                 :data="source.risk"
-                 :events="source.events"
-                 :currentTime="currentTime"
-                 @seek-video="handleSeekVideo"
-                 @current-data="handleCurrentRiskData"
+  <div class="flex flex-col flex-1 ">
+  <main v-if="source" class="flex h-full">
+    <div class="flex-1 flex flex-col items-stretch overflow-y-auto">
+      <h3 v-if="source" class="my-2 ml-4 text-xl font-bold">Source {{source.id}} details</h3>
+      <h3 v-else class="my-2 ml-4 text-lg font-bold">Source  details</h3>
+      <video
+          :src="videoUrl"
+          controls
+          @timeupdate="updateCurrentTime"
+          ref="videoPlayer"
+          class="object-cover w-full max-w-screen-lg m-auto	"
+      ></video>
+      <RiskGraph
+          class="h-30 mt-4"
+          :data="source.risk"
+          :events="source.events"
+          :currentTime="currentTime"
+          @seek-video="handleSeekVideo"
+          @current-data="handleCurrentRiskData"
       />
+      <div class="flex h-36 mt-4">
+        <AccelerometerGraph
+            class="flex-1 mr-2"
+            :data="source.accelerometer"
+            :currentTime="currentTime"
+            :events="source.events"
+            @seek-video="handleSeekVideo"
+            @current-data="handleCurrentAccelData"
+        />
+        <SpeedGraph
+            class="flex-1 ml-2"
+            :data="source.location"
+            :currentTime="currentTime"
+            :events="source.events"
+            @seek-video="handleSeekVideo"
+            @current-data="handleCurrentLocationData"
+        />
+      </div>
 
     </div>
-    <div class="charts-container">
-      <AccelerometerGraph class="accel-graph"
-                          :data="source.accelerometer"
-                          :currentTime="currentTime"
-                          @seek-video="handleSeekVideo"
-                          @current-data="handleCurrentAccelData"/>
-      <SpeedGraph class="speed-graph"
-                  :data="source.location"
-                  :currentTime="currentTime"
-                  @seek-video="handleSeekVideo"
-                  @current-data="handleCurrentLocationData"
+    <div class="flex flex-col ">
+    <EventList
+        :events="source.events"
+        :onSeek="handleSeekAndPlayVideo"
+        class="w-72 border-l border-gray-300 overflow-y-auto"
+    />
+      <CreateEventButton
+          :videoCurrentTime="currentTime"
+          :sourceId="sourceId"
+          @event-created="handleEventCreated"
       />
     </div>
-    <CreateEventButton
-        :videoCurrentTime="currentTime"
-        :sourceId="sourceId"
-        @event-created="handleEventCreated"
-    />
   </main>
-  <div v-else class="empty-details">
-    <h4>Select a source from the list.</h4>
+  <div v-else class="flex justify-center items-center h-full w-full text-gray-500">
+    <h4 class="text-lg font-semibold">Select a source from the list.</h4>
+  </div>
   </div>
 </template>
 
 <script lang="ts">
 import {defineComponent} from 'vue';
-import {Source} from '../types/Source';
+import {Source} from '@/types/Source';
 import AccelerometerGraph from './AccelerometerGraph.vue';
 import SpeedGraph from './SpeedGraph.vue';
 import RiskGraph from './RiskGraph.vue';
-import {source} from "../api.ts";
-import {LocationData} from "../types/LocationData.ts";
-import {AccelerometerData} from "../types/AccelerometerData.ts";
-import CreateEventButton from "./CreateEventButton.vue";
+import {source} from '../api.ts';
+import {LocationData} from '../types/LocationData.ts';
+import {AccelerometerData} from '../types/AccelerometerData.ts';
+import CreateEventButton from './CreateEventButton.vue';
+import EventList from './EventList.vue';
 
 export default defineComponent({
   name: 'SourceDetail',
@@ -54,6 +77,7 @@ export default defineComponent({
     SpeedGraph,
     RiskGraph,
     CreateEventButton,
+    EventList,
   },
   props: {
     sourceId: {
@@ -61,6 +85,7 @@ export default defineComponent({
       required: false,
     },
   },
+  emits: [],
   data() {
     return {
       source: null as Source | null,
@@ -68,7 +93,6 @@ export default defineComponent({
       currentTime: 0,
     };
   },
-
   watch: {
     sourceId(newId: string | undefined) {
       if (newId) {
@@ -89,64 +113,42 @@ export default defineComponent({
     fetchSource(id: string) {
       source(id)
           .then(response => {
-            this.source = response.data;
-            this.videoUrl = `http://localhost:8080/video/${id}`;
+            this.source = response.data as Source;
+            this.videoUrl = `/api/video/${id}`;
           })
           .catch(error => {
-            console.error('Ошибка при получении данных источника:', error);
+            console.error('Error fetching source data:', error);
           });
-    }, handleSeekVideo(seekTime: number) {
+    },
+    handleSeekVideo(seekTime: number) {
       const videoElement = this.$refs.videoPlayer as HTMLVideoElement;
       if (videoElement) {
         videoElement.currentTime = seekTime;
-        videoElement.play();      }
-    }, handleCurrentAccelData(data: AccelerometerData) {
-      console.log('Current Accel Data:', data);
+        videoElement.pause();
+      }
+    },
+    handleSeekAndPlayVideo(seekTime: number) {
+      const videoElement = this.$refs.videoPlayer as HTMLVideoElement;
+      if (videoElement) {
+        videoElement.currentTime = seekTime;
+        videoElement.play();
+      }
+    },
+    handleCurrentAccelData(data: AccelerometerData) {
+      console.log('Current Accelerometer Data:', data);
     },
     handleCurrentLocationData(data: LocationData) {
-      console.log('Current Speed Data:', data);
+      console.log('Current Location Data:', data);
     },
     handleCurrentRiskData(data: LocationData) {
       console.log('Current Risk Data:', data);
     },
-    handleEventCreated() {
-        console.log('Event created:', event);
-    }
-
+    handleEventCreated(newEvent: Event) {
+      if (this.source) {
+        this.source.events.push(newEvent);
+      }
+      console.log('Event created:', newEvent);
+    },
   },
 });
 </script>
-
-<style scoped>
-main {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.video-container {
-  max-width: 960px;
-}
-.risk-graph{
-  height: 120px
-
-}
-.charts-container {
-  display: flex;
-  height: 150px
-
-}
-
-video {
-  object-fit: cover;
-  width: 100%;
-}
-.empty-details {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  width: 100%;
-  color: #666;
-}
-</style>

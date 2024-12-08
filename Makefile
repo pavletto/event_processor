@@ -6,15 +6,6 @@ build:
 run:
 	go run ./cmd/main.go
 
-docker-build:
-	docker-compose build
-
-docker-up:
-	docker-compose up -d
-
-docker-down:
-	docker-compose down
-
 build-debug:
 	go build -gcflags "all=-N -l" -o ./dist/app ./cmd/main.go
 

@@ -6,4 +6,7 @@ export interface AccelerometerData {
     x: number;
     y: number;
     z: number;
+
+    recording_time_date: Date;
+    relative_time_number: number;
 }
